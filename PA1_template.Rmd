@@ -8,18 +8,174 @@ output:
 
 ## Loading and preprocessing the data
 
+```{r} 
+unzip("activity.zip")
+initialData <- read.csv("activity.csv", colClasses=c("numeric", "Date", "numeric"))
+```
 
 
 ## What is mean total number of steps taken per day?
+##ignore missing values
+```{r}
+data <- initialData[!(is.na(initialData$steps)), ]
+```
+##group by day 
+```{r}
+totalStepsDay <- aggregate(steps ~ date, data, sum)
+head(totalStepsDay)
+```
+##         date steps
+## 1 2012-10-02   126
+## 2 2012-10-03 11352
+## 3 2012-10-04 12116
+## 4 2012-10-05 13294
+## 5 2012-10-06 15420
+## 6 2012-10-07 11015
 
+##Create Histogram 
 
+```{r}
+paletteBlue <- colorRampPalette(c("skyblue", "darkblue", "skyblue"))
+hist(totalStepsDay$steps, breaks=20, xlab="Number of Steps Taken", 
+     main="Histogram of the Total Number of Steps Taken per Day",
+     col=paletteBlue(22), family="serif")
+```
+##Find mean and median 
 
+```{r, message=FALSE}
+library(dplyr)
+totalStepsSummary <- summarise(totalStepsDay, meanOfTotalSteps=mean(totalStepsDay$steps),
+                               medianOfTotalSteps=median(totalStepsDay$steps))
+print(totalStepsSummary)
+```
+
+median - 10765 mean - 10766.19
 ## What is the average daily activity pattern?
 
-
+##exploratory graph 
+```{r}
+meanStepsInterval <- aggregate(steps ~ interval, data, mean)
+head(meanStepsInterval)
+```
+## make timew series plot 
+```{r}
+plot(x=meanStepsInterval$interval, y=meanStepsInterval$steps, type="l",
+     main="Time Series Plot of Average Steps Taken per Interval",
+     ylab="Number of Steps", xlab="Intervals (in 5 mins)",
+     col="darkblue", lwd=1.5, family="serif")
+```
+##5 min intervals
+```{r}
+meanStepsInterval[grep(max(meanStepsInterval$steps), meanStepsInterval$steps), ]
+```
 
 ## Imputing missing values
+##ANY NA values?
+```{r}
+anyNA(initialData)
+```
+
+2304 NA values 
+##loop to impute 
+```{r}
+imputedData <- initialData
+for(x in 1:17568) {
+    if(is.na(imputedData[x, 1])==TRUE) {
+        imputedData[x, 1] <- meanStepsInterval[meanStepsInterval$interval %in% imputedData[x, 3], 2]
+    }
+}
+head(imputedData)
+```
+
+##prep for histogram 
+```{r}
+imputedTotalStepsDay <- aggregate(steps ~ date, imputedData, sum)
+head(imputedTotalStepsDay)
+```
+##Create histogram 
+```{r}
+paletteRed <- colorRampPalette(c("deeppink", "darkred", "deeppink"))
+hist(imputedTotalStepsDay$steps, breaks=20, xlab="Number of Steps Taken", 
+     main="Histogram of Total Number of Steps Taken per Day (With Imputed Values)",
+     col=paletteRed(22), family="serif")
+```
+##mean and median
+
+```{r}
+imputedStepsSummary <- summarise(imputedTotalStepsDay, 
+                                 meanOfTotalSteps=mean(imputedTotalStepsDay$steps), 
+                                 medianOfTotalSteps=median(imputedTotalStepsDay$steps))  
+print(imputedStepsSummary)
+```
+
+##add imputed step 
+```{r}
+rbind(totalStepsSummary, imputedTotalStepsSummary)
+```
+
+##Compare histograms 
+```{r}
+par(mfrow = c(1, 2))
+
+hist(totalStepsDay$steps, breaks=20, xlab="Number of Steps Taken", 
+     col=paletteBlue(22), family="serif", ylim=c(0, 20), main=NULL)
+hist(imputedTotalStepsDay$steps, breaks=20, xlab="Number of Steps Taken", 
+     col=paletteRed(22), family="serif", ylim=c(0, 20), main=NULL)
+mtext("Histograms of Total Number of Steps Taken per Day, Without/With Imputed Values",
+      adj=0.95, family="serif", font=2)
+```
+
+##intervals per day 
+
+```{r}
+length(unique(data$interval))
+``` 
+
+288
+missing observations are due to missing days - imputing technique is useful 
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+##weekdays function 
+```{r}
+daysData <- imputedData
+daysData$days <- weekdays(daysData$date)
+daysData$weekday <- as.character(rep(0, times=17568))
+for(x in 1:17568) {
+    if(daysData[x, 4] %in% c("Saturday", "Sunday")) {
+        daysData[x, 5] <- "weekend"
+    } else {
+        daysData[x, 5] <- "weekday"
+    }
+}
+daysData$weekday <- factor(daysData$weekday)
+head(daysData)
+```
+
+##compare weekend and weekday 
+```{r}
+weekdayData <- daysData[daysData$weekday=="weekday", ]
+weekendData <- daysData[daysData$weekday=="weekend", ]
+```
+
+##average steps
+```{r}
+weekdayMean <- aggregate(steps ~ interval, weekdayData, mean)
+weekendMean <- aggregate(steps ~ interval, weekendData, mean)
+```
+
+
+##Final Plot 
+```{r}
+par(mfrow=c(2, 1), mar=c(4, 4.1, 3, 2.1))
+plot(weekdayMean$interval, weekdayMean$steps, type="l",
+     main="Time Series Plot of Average Steps Taken per Interval, for Weekdays",
+     xlab="Intervals (in 5 mins)", ylab="Number of Steps", family="serif",
+     col="darkred", lwd=1.5, ylim=c(0, 230))
+plot(weekendMean$interval, weekendMean$steps, type="l",
+     main="Time Series Plot of Average Steps Taken per Interval, for Weekends",
+     xlab="Intervals (in 5 mins)", ylab="Number of Steps", family="serif",
+     col="darkblue", lwd=1.5, ylim=c(0, 230))
+```
