@@ -179,3 +179,4 @@ plot(weekendMean$interval, weekendMean$steps, type="l",
      xlab="Intervals (in 5 mins)", ylab="Number of Steps", family="serif",
      col="darkblue", lwd=1.5, ylim=c(0, 230))
 ```
+render(rmd.rmd, output_format="word_document", output_dir="./doc") ; render(rmd.rmd, output_format="html_document", output_dir="./html") ;
